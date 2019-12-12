@@ -1,57 +1,43 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Woopsa;
 
 namespace IoT.RaspberryPi
 {
-    //TODO : create a library and a sample application
     public class RaspberryPi : IRaspberryPi, IDisposable
     {
         private readonly ILogger<RaspberryPi> _logger;
-        private readonly WoopsaServer _woopsaServer;
         private readonly IGpio _gpio;
-        private readonly ICamera _camera;
+        private readonly IStreamer _streamer;
 
-        public RaspberryPi(ILogger<RaspberryPi> logger, IGpio gpio, ICamera camera)
+        public RaspberryPi(ILogger<RaspberryPi> logger, IGpio gpio, IStreamer streamer)
         {
             _logger = logger;
-            _woopsaServer = new WoopsaServer(this);
-            _woopsaServer.Authenticator = new SimpleAuthenticator("Raspberry", 
-                (sender, e) =>  e.IsAuthenticated = e.Username == "admin" && e.Password == "admin");
-
             _gpio = gpio;
-            _camera = camera;
+            _streamer = streamer;
             _logger.LogDebug("Raspberry pi created");
-
-
-            //TODO : to that more dynamically
-            _woopsaServer.WebServer.Routes.Add("camera", HTTPMethod.GET, new RouteHandlerFileSystem(Camera.SharedFolder));
         }
 
-        public IGpio Gpio => _gpio;  
-        
-        public ICamera Camera => _camera;     
+        public IGpio Gpio => _gpio;
+
+        public IStreamer Streamer => _streamer;
 
         //TODO : Save on persistant
         public string SharedFolder { get; set; }
 
         #region IDisposable
-        
+
         private bool _disposedValue = false;
 
         protected virtual void Dispose(bool disposing)
         {
-            _logger.LogDebug("Raspberry pi disposing...");
-            
+            _logger.LogInformation("Raspberry pi disposing...");
+
             if (!_disposedValue)
             {
                 if (disposing)
                 {
                     _gpio.Dispose();
-                    _woopsaServer.Dispose();
+                    _streamer.Dispose();
                 }
 
                 _disposedValue = true;

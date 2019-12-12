@@ -7,6 +7,6 @@ namespace IoT.RaspberryPi
     public interface IRaspberryPi : IDisposable
     {
         IGpio Gpio { get; }
-        ICamera Camera { get; }
+        IStreamer Streamer { get; }
     }
 }
