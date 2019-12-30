@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace IoT.RaspberryPi
 {
@@ -18,8 +20,6 @@ namespace IoT.RaspberryPi
         }
 
         public IEnumerable<GpioPin> Pins => _gpioPins;
-
-        #region Pinout
 
         public GpioPin P1Pin3 { get; private set; }
 
@@ -73,6 +73,15 @@ namespace IoT.RaspberryPi
 
         public GpioPin P1Pin13 { get; private set; }
 
+        public IGpioPin this[int pinNumber]
+        {
+            get
+            {
+                var pin = _gpioPins.SingleOrDefault(p => p.PinNumber == pinNumber);
+                return pin ?? throw new ArgumentException($"Pin number '{pinNumber}' is out of range: [2-27]");
+            }
+        }
+
         private void InitializePin()
         {
             _gpioPins.Add(P1Pin3 = new GpioPin(2));
@@ -100,8 +109,6 @@ namespace IoT.RaspberryPi
             _gpioPins.Add(P1Pin37 = new GpioPin(26));
             _gpioPins.Add(P1Pin13 = new GpioPin(27));
         }
-
-        #endregion
 
         #region IDisposable
 

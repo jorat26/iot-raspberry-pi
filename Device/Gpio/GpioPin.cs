@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace IoT.RaspberryPi
 {
@@ -17,7 +15,7 @@ namespace IoT.RaspberryPi
         High = 1
     }
 
-    public class GpioPin : IGpioPin, IDisposable
+    public class GpioPin : IGpioPin, IGpioStatus, IDisposable
     {
         private const string DevicePath = @"/sys/class/gpio";
         private readonly string _gpioPath;
@@ -31,12 +29,11 @@ namespace IoT.RaspberryPi
             _gpioPath = Path.Combine(DevicePath, string.Concat("gpio", PinNumber.ToString()));
         }
 
-        #region Public members
+        public int PinNumber { get; }
 
-        public int PinNumber { get; private set; }
+        public bool IsOpen => Directory.Exists(_gpioPath);
 
-        // //TODO : Improve with pin status, not only pin number 
-        public string Status => $"Status of pin {PinNumber}: ";
+        public GpioModes Mode { get; private set; }
 
         public void Open()
         {
@@ -52,32 +49,44 @@ namespace IoT.RaspberryPi
         {
             var gpioExportPath = Path.Combine(DevicePath, "unexport");
             if (Directory.Exists(_gpioPath))
+            {
                 File.WriteAllText(gpioExportPath, PinNumber.ToString());
+                Directory.Delete(_gpioPath);
+            }
         }
 
         public void SetMode(GpioModes mode)
         {
+            CheckIsOpen();
+
             switch (mode)
             {
                 case GpioModes.Input:
                     File.WriteAllText(Path.Combine(_gpioPath, "direction"), "in");
                     Directory.SetLastWriteTime(Path.Combine(_gpioPath), DateTime.UtcNow);
-                break;
+                    break;
                 case GpioModes.Output:
                     File.WriteAllText(Path.Combine(_gpioPath, "direction"), "out");
                     Directory.SetLastWriteTime(Path.Combine(_gpioPath), DateTime.UtcNow);
-                break;
+                    break;
             }
+
+            Mode = mode;
         }
 
         public void Write(GpioValues value)
         {
+            CheckIsOpen();
+            CheckIsOutput();
+
             File.WriteAllText(Path.Combine(_gpioPath, "value"), ((int)value).ToString());
             Directory.SetLastWriteTime(Path.Combine(_gpioPath), DateTime.UtcNow);
         }
 
         public GpioValues Read()
         {
+            CheckIsOpen();
+
             if (File.Exists(Path.Combine(_gpioPath, "value")))
             {
                 var value = File.ReadAllText(Path.Combine(_gpioPath, "value"));
@@ -89,27 +98,24 @@ namespace IoT.RaspberryPi
             }
         }
 
-        public void Pulse(GpioValues value, int milliseconds)
+        private void CheckIsOpen()
         {
-            switch(value)
+            if (!IsOpen)
             {
-                case GpioValues.Low:
-                    Write(GpioValues.Low);
-                    System.Threading.Thread.Sleep(milliseconds);
-                    Write(GpioValues.High);
-                    break;
-                case GpioValues.High:
-                    Write(GpioValues.High);
-                    System.Threading.Thread.Sleep(milliseconds);
-                    Write(GpioValues.Low);
-                    break;
+                throw new GpioPinException($"Pin {PinNumber} must be open to allow mode changes.");
             }
         }
 
-        #endregion
+        private void CheckIsOutput()
+        {
+            if (Mode == GpioModes.Output)
+            {
+                throw new GpioPinException($"Pin {PinNumber} must be configured as an output to be able to write.");
+            }
+        }
 
         #region IDisposable
-        
+
         private bool _disposedValue = false;
 
         protected virtual void Dispose(bool disposing)
